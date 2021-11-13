@@ -88,6 +88,7 @@ namespace TestBotIS
 
 			//ここから記述--------------------------------------------------------------------------
 			await ResponseFromMsg.JudgeMsg(message);
+			
 		}
 
 		private async Task ReactionRecieved(Cacheable<IUserMessage, ulong> a
@@ -96,8 +97,6 @@ namespace TestBotIS
 			Console.WriteLine("aa");
 			// Console.WriteLine(reac.Emote.Name);
 			// Console.WriteLine(reac.MessageId.ToString());
-			await reac.Channel.SendMessageAsync(reac.Emote.Name);
-
 
 			// var d = ((SocketUserMessage)reac.Message);
 			// Console.WriteLine(d.Author.Username);

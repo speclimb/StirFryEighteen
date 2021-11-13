@@ -13,9 +13,9 @@ namespace TestBotIS
 		public static Person Player;
 
 		/// <summary>
-		/// DiscordのSocketUserからPersonインスタンスを生成して返す
+		/// 投稿されたSocektMessageから規定通りの行動をする
 		/// </summary>
-		/// <returns>SocketUserから生成されたPersonインスタンス</returns>
+		/// <returns></returns>
 		public static async Task JudgeMsg(SocketUserMessage NowMsg)
 		{
 			var CommandContext = NowMsg.Content;
@@ -75,6 +75,9 @@ namespace TestBotIS
 						await DisplayInfo();
 						await CardListHandler.SendMsgToUserHand(Player);
 						break;
+					case "!e":
+						await SendAjimiQuestion();
+						break;
 					case "!start":
 
 						break;
@@ -100,7 +103,7 @@ namespace TestBotIS
 					// 点数チェック
 					case "!check":
 						(hantei, score, str) = CalcScore(CommandList);
-						FieldToPerson();	//_Fieldに出ているカードをプレイヤーに返す
+						FieldToPerson();    //_Fieldに出ているカードをプレイヤーに返す
 						await Player.socketUser.SendMessageAsync(str);
 						break;
 					// カードを場に出して採点する
@@ -111,7 +114,7 @@ namespace TestBotIS
 						// 点数判定が成立しない場合は手札にカードを戻す
 						if (hantei != true)
 						{
-							FieldToPerson();	//_Fieldに出ているカードをプレイヤーに返す
+							FieldToPerson();    //_Fieldに出ているカードをプレイヤーに返す
 							break;
 						}
 						await Program._GameChannel.SendMessageAsync(Player.Name + "は調理を行った。\n" + str);
@@ -276,9 +279,9 @@ namespace TestBotIS
 			if (Program._TurnIndex >= Program._PersonList.Count)
 				Program._TurnIndex = 0;
 		}
-		
+
 		/// <summary>
-		/// TurnIndexを1進め，プレイヤー人数を上回ったら0に戻してスタートプレイヤーの手番とする
+		/// 各プレイヤーの情報や山札の枚数といった情報をDiscordチャンネルに投稿する
 		/// </summary>
 		/// <returns></returns>
 		public static async Task DisplayInfo()
@@ -294,7 +297,7 @@ namespace TestBotIS
 			str += "山札の枚数：" + Program._Deck.Count.ToString() + "\n";
 			await Program._GameChannel.SendMessageAsync(str);
 		}
-		
+
 		/// <summary>
 		/// Program._Fieldに出ているカードを現在の手番プレイヤーに返す
 		/// </summary>
@@ -308,5 +311,70 @@ namespace TestBotIS
 			Player.SortHand();
 			Program._Field.Clear();
 		}
+
+		public static async Task SendAjimiQuestion()
+		{
+			IEmote[] emotes = new IEmote[2];
+			var embed = new EmbedBuilder();
+			embed.WithTitle("選択肢");
+			embed.WithColor(Color.Green);
+			// 念のためnullで初期化
+			string description = null;
+			// 表示する選択肢一覧をdescriptionに設定
+			description += (new Emoji("🍴")).ToString() + "：味見する" + "\n";
+			emotes[0] = new Emoji("🍴");
+			description += (new Emoji("👍")).ToString() + "：信用する" + "\n";
+			emotes[1] = new Emoji("👍");
+
+			embed.WithDescription(description);
+			await Program._GameChannel.SendMessageAsync(null, false, embed.Build()).GetAwaiter().GetResult().AddReactionsAsync(emotes);
+		}
+		public static async Task SendSentakushi(params string[] msg)
+		{
+			// エモート用のリスト（リアクションを設定するときに使用）
+			IEmote[] emotes = new IEmote[0];
+			var embed = new EmbedBuilder();
+			embed.WithTitle("選択肢");
+			embed.WithColor(Color.Green);
+			// 念のためnullで初期化
+			string description = null;
+			// 表示する選択肢一覧をdescriptionに設定
+			for (int i = 1; i < msg.Length; i++)
+			{
+				description += (new Emoji(iconUni[i - 1])).ToString() + msg[i] + "\n";
+				// 選択肢一覧で使用した絵文字をエモートの配列に追加（この時配列をリサイズする）
+				Array.Resize(ref emotes, i);
+				emotes[i - 1] = new Emoji(iconUni[i - 1]);
+			}
+			embed.WithDescription(description);
+			await Program._GameChannel.SendMessageAsync(null, false, embed.Build()).GetAwaiter().GetResult().AddReactionsAsync(emotes);
+		}
+
+		private static string[] iconUni = { "\uD83C\uDDE6",
+					 "\uD83C\uDDE7",
+					 "\uD83C\uDDE8",
+					 "\uD83C\uDDE9",
+					 "\uD83C\uDDEA",
+					 "\uD83C\uDDEB",
+					 "\uD83C\uDDEC",
+					 "\uD83C\uDDED",
+					 "\uD83C\uDDEE",
+					 "\uD83C\uDDEF",
+					 "\uD83C\uDDF0",
+					 "\uD83C\uDDF1",
+					 "\uD83C\uDDF2",
+					 "\uD83C\uDDF3",
+					 "\uD83C\uDDF4",
+					 "\uD83C\uDDF5",
+					 "\uD83C\uDDF6",
+					 "\uD83C\uDDF7",
+					 "\uD83C\uDDF8",
+					 "\uD83C\uDDF9",
+					 "\uD83C\uDDFA",
+					 "\uD83C\uDDFB",
+					 "\uD83C\uDDFC",
+					 "\uD83C\uDDFD",
+					 "\uD83C\uDDFE",
+					 "\uD83C\uDDFF" };
 	}
 }
