@@ -11,6 +11,11 @@ namespace TestBotIS
 	class ResponseFromMsg
 	{
 		public static Person Player;
+
+		/// <summary>
+		/// DiscordのSocketUserからPersonインスタンスを生成して返す
+		/// </summary>
+		/// <returns>SocketUserから生成されたPersonインスタンス</returns>
 		public static async Task JudgeMsg(SocketUserMessage NowMsg)
 		{
 			var CommandContext = NowMsg.Content;
@@ -95,6 +100,7 @@ namespace TestBotIS
 					// 点数チェック
 					case "!check":
 						(hantei, score, str) = CalcScore(CommandList);
+						FieldToPerson();	//_Fieldに出ているカードをプレイヤーに返す
 						await Player.socketUser.SendMessageAsync(str);
 						break;
 					// カードを場に出して採点する
@@ -105,12 +111,7 @@ namespace TestBotIS
 						// 点数判定が成立しない場合は手札にカードを戻す
 						if (hantei != true)
 						{
-							List<Card> list = Player.GetHand().DeepCopy();
-							var templist1 = Program._Field.DeepCopy();
-							list.AddRange(templist1);
-							Player.SetHand(list);
-							Player.SortHand();
-							Program._Field.Clear();
+							FieldToPerson();	//_Fieldに出ているカードをプレイヤーに返す
 							break;
 						}
 						await Program._GameChannel.SendMessageAsync(Player.Name + "は調理を行った。\n" + str);
@@ -152,6 +153,11 @@ namespace TestBotIS
 			}
 			Console.WriteLine("Command Process Finished.");
 		}
+
+		/// <summary>
+		/// DiscordのSocketUserからPersonインスタンスを生成して返す
+		/// </summary>
+		/// <returns>SocketUserから生成されたPersonインスタンス</returns>
 		public static Person GetOnePerson(SocketUserMessage message)
 		{
 			var Person1 = new Person(message.Author, 1);
@@ -211,7 +217,7 @@ namespace TestBotIS
 						DeclaredName = Regex.Replace(cmd, @"[!]", "");
 					}
 				}
-				
+
 			}
 			else if (SelectCardList.Count == 2)
 			{
@@ -225,6 +231,11 @@ namespace TestBotIS
 			return (0, "ss");
 		}
 
+
+		/// <summary>
+		/// 次のプレイヤーのターンに移行する
+		/// </summary>
+		/// <returns></returns>
 		public static async Task StartNextTurn()
 		{
 			Program._Deck.AddRange(Program._Trash.DeepCopy());
@@ -254,13 +265,22 @@ namespace TestBotIS
 			await DisplayInfo();
 			await CardListHandler.SendMsgToUserHand(Player);
 		}
+
+		/// <summary>
+		/// TurnIndexを1進め，プレイヤー人数を上回ったら0に戻してスタートプレイヤーの手番とする
+		/// </summary>
+		/// <returns></returns>
 		public static void TurnIncrement()
 		{
 			Program._TurnIndex++;
 			if (Program._TurnIndex >= Program._PersonList.Count)
 				Program._TurnIndex = 0;
 		}
-
+		
+		/// <summary>
+		/// TurnIndexを1進め，プレイヤー人数を上回ったら0に戻してスタートプレイヤーの手番とする
+		/// </summary>
+		/// <returns></returns>
 		public static async Task DisplayInfo()
 		{
 			string str = "";
@@ -273,6 +293,20 @@ namespace TestBotIS
 			}
 			str += "山札の枚数：" + Program._Deck.Count.ToString() + "\n";
 			await Program._GameChannel.SendMessageAsync(str);
+		}
+		
+		/// <summary>
+		/// Program._Fieldに出ているカードを現在の手番プレイヤーに返す
+		/// </summary>
+		/// <returns></returns>
+		public static void FieldToPerson()
+		{
+			List<Card> list1 = Player.GetHand().DeepCopy();
+			var templist1 = Program._Field.DeepCopy();
+			list1.AddRange(templist1);
+			Player.SetHand(list1);
+			Player.SortHand();
+			Program._Field.Clear();
 		}
 	}
 }

@@ -84,7 +84,7 @@ namespace TestBotIS
 			await person.socketUser.SendMessageAsync(strPlayer.ToString());
 			return 0;
 		}
-
+		
 
 	}
 }
