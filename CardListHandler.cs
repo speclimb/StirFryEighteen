@@ -45,10 +45,11 @@ namespace TestBotIS
 					List<double> FlagNumberList = list2.GetRange(4, 3).ConvertAll(x => double.Parse(x));
 					List<string> FlagStrList = list2.GetRange(7, 3);
 					string ImgName = list2[10];
+					string ImgURL = Program._GithubContentStr + "main/img/cards/" + ImgName;
 					string Note = list2[11];
 
 					var Card1 = new Card(CardID, Name, Kind, Number, DrawNumber, FlagKind
-										, FlagNumberList, FlagStrList, ImgName, Note);
+										, FlagNumberList, FlagStrList, ImgURL, Note);
 					CardList.Add(Card1);
 					CardID++;
 				}
@@ -68,7 +69,14 @@ namespace TestBotIS
 			var gotList = list.GetRange(0, Number).DeepCopy();
 			newList.AddRange(gotList);
 			list.RemoveRange(0, Number);
-			await person.socketUser.SendMessageAsync(String.Join(", ", gotList.GetStrCardName()) + "を引いた");
+
+			var embed = new EmbedBuilder();
+			embed.WithTitle("プレイヤーNo." + person.Number.ToString() + "のドロー");
+			embed.WithAuthor(person.socketUser.Username, person.socketUser.GetAvatarUrl() ?? person.socketUser.GetDefaultAvatarUrl());
+			embed.WithColor(Color.Purple);
+			string str = String.Join(", ", gotList.GetStrCardName()) + "を引いた";
+			embed.WithDescription(str);
+			await person.socketUser.SendMessageAsync(null, false, embed.Build());
 			return 0;
 		}
 
@@ -84,7 +92,13 @@ namespace TestBotIS
 			embed.WithTitle("プレイヤーNo." + person.Number.ToString() + "の手札カード");
 			embed.WithAuthor(person.socketUser.Username, person.socketUser.GetAvatarUrl() ?? person.socketUser.GetDefaultAvatarUrl());
 			embed.WithColor(Color.Blue);
-			embed.WithDescription(strPlayer.ToString());
+			// embed.WithDescription(strPlayer.ToString());
+			// Card card = person.GetHand()[0];
+			foreach (Card card in person.GetHand())
+			{
+				embed.AddField(card.Name, card.Note, true);
+			}
+			// embed.WithImageUrl(person.GetHand()[0].ImgURL);	//画像は一枚しか出せないらしい
 			await person.socketUser.SendMessageAsync(null, false, embed.Build());
 			return 0;
 		}
@@ -131,26 +145,50 @@ namespace TestBotIS
 		/// <summary>
 		/// カードを場(_Field)に出して味見待機状態にする
 		/// </summary>
-		/// <returns>名前や説明などが格納されたstring List</returns>
-		public static (int, string) DiscardToField(Person Player, List<string> CommandList)
+		/// <returns>(bool 成功/不成功, 宣言するカード名(あるいはエラーメッセージ))</returns>
+		public static (bool, string) DiscardToField(Person Player, List<string> CommandList)
 		{
 			string str = "";
 			string DeclaredName = "";
 			CommandList.RemoveAt(0);
 			if (CommandList.Count == 0)
+			{
 				str = "捨てるカード名を指定して下さい";
+				return (false, str);
+			}
 
 			var CardNameList = CommandList.GetRange(0, CommandList.Count);
 			str = "選択カード：" + String.Join(", ", CardNameList) + "\n";
 			var (SelectCardList, NonSelectedCardList) = Player.GetHand().FindCardList(CardNameList);
 
-			if (SelectCardList.Count == 1)
+
+			if (SelectCardList.Count == 0)
+			{
+				str = "捨てるカード名が間違っています";
+				return (false, str);
+			}
+			else if (SelectCardList.Count == 1)
 			{
 				foreach (string cmd in CommandList)
 				{
 					if (cmd.StartsWith('!'))
 					{
 						DeclaredName = Regex.Replace(cmd, @"[!]", "");
+						bool IsProtein = false;
+						//タンパク質のみを捨て札にできるので，宣言名がタンパク質か判定
+						foreach (Card card in Program._CardList)
+						{
+							if (card.Name == DeclaredName && card.Kind == "タンパク質")
+							{
+								IsProtein = true;
+								break;
+							}
+						}
+						if (IsProtein == false)
+						{
+							str = "タンパク質以外のカードを宣言することは出来ません";
+							return (false, str);
+						}
 					}
 				}
 			}
@@ -161,13 +199,13 @@ namespace TestBotIS
 			else
 			{
 				str = "選択するカードは1枚か2枚です";
-				return (-1, "");
+				return (false, str);
 			}
 
 			Program._Field = SelectCardList.DeepCopy();
 			Player.SetHand(NonSelectedCardList.DeepCopy());
 
-			return (0, DeclaredName);
+			return (true, DeclaredName);
 		}
 	}
 }

@@ -16,7 +16,7 @@ namespace TestBotIS
 		public readonly string Note;
 		public readonly string ImgURL;
 		public Card(int ID, string Name, string Kind, double Number, int DrawNumber, string FlagKind
-					, List<double> FlagNumberList, List<string> FlagStrList, string ImgName,string Note)
+					, List<double> FlagNumberList, List<string> FlagStrList, string ImgURL,string Note)
 		{
 			this.ID = ID;
 			this.Name = Name;
@@ -27,7 +27,7 @@ namespace TestBotIS
 			this.FlagNumberList = FlagNumberList;
 			this.FlagStrList = FlagStrList;
 			this.Note = Note;
-			this.ImgURL = Program._githubstr + "/" + ImgName;
+			this.ImgURL = ImgURL;
 		}
 		public void DisplayCardData()
 		{

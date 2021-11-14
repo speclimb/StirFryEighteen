@@ -34,7 +34,7 @@ namespace TestBotIS
 
 					//_PersonList末尾に!jコマンド入力者の情報を追加
 					case "!j":
-						Program._PersonList.Add(GetOnePerson(NowMsg));
+						Program._PersonList.Add(await GetOnePerson(NowMsg));
 						break;
 					//全参加者を一覧表示
 					case "!ls":
@@ -66,11 +66,15 @@ namespace TestBotIS
 						}
 						Program._Deck.DisplayCardList();
 						Program._IsGame = true;
-						await Program._GameChannel.SendMessageAsync("ゲームスタート!");
+						await Program._GameChannel.SendMessageAsync(null, false, new EmbedBuilder().WithTitle("ゲームスタート!").Build());
 						Program._TurnIndex = 0;
 						Player = Program._PersonList[Program._TurnIndex];
-						await Program._GameChannel.SendMessageAsync("---\n" + Player.Name + Player.Number.ToString() + "の番です");
-						await Player.socketUser.SendMessageAsync(Player.Name + Player.Number.ToString() + "の番です");
+						var embed = new EmbedBuilder();
+						embed.WithTitle(Player.Name + Player.Number.ToString() + "の番です");
+						embed.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
+						embed.WithColor(Color.Green);
+						await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
+						await Player.socketUser.SendMessageAsync(null, false, embed.Build());
 						await CardListHandler.DealCardToPerson(Program._Deck, Player, 1);
 						await DisplayInfo();
 						await CardListHandler.SendMsgToUserHand(Player);
@@ -130,11 +134,13 @@ namespace TestBotIS
 						break;
 					// カードを場に出して味見審議する
 					case "!discard":
-						int x = 0;
-						(x, Program._DeclaredName) = CardListHandler.DiscardToField(Player, CommandList);
-						if (x == -1)
+						bool IsDiscardSuccess = false;
+						(IsDiscardSuccess , Program._DeclaredName) = CardListHandler.DiscardToField(Player, CommandList);
+						if (IsDiscardSuccess  == false)
 						{
 							CardListHandler.FieldToPerson(Player);
+							await Player.socketUser.SendMessageAsync(null, false, new EmbedBuilder().WithTitle(Program._DeclaredName).Build());
+							Program._DeclaredName = "";
 							break;
 						}
 						await SendTastingQuestion();
@@ -167,12 +173,18 @@ namespace TestBotIS
 		/// DiscordのSocketUserからPersonインスタンスを生成して返す
 		/// </summary>
 		/// <returns>SocketUserから生成されたPersonインスタンス</returns>
-		public static Person GetOnePerson(SocketUserMessage message)
+		public static async Task<Person> GetOnePerson(SocketUserMessage message)
 		{
 			var Person1 = new Person(message.Author, 1);
-			message.Channel.SendMessageAsync("プレイヤー総数:" + Person.NumberOfPerson.ToString());
-			message.Channel.SendMessageAsync("プレイヤー情報：ID=" + Person1.ID.ToString()
-			 + ", 名前=" + Person1.Name + ", 役割=" + Person1.GetJob().ToString());
+			var embed = new EmbedBuilder();
+			embed.WithTitle("プレイヤーNo." + Person1.Number.ToString() + "として参加");
+			embed.WithAuthor(Person1.socketUser.Username, Person1.socketUser.GetAvatarUrl() ?? Person1.socketUser.GetDefaultAvatarUrl());
+			embed.WithColor(Color.Red);
+			// embed.WithDescription("プレイヤーNo." + Person1.Number.ToString() + "として参加");
+			// message.Channel.SendMessageAsync("プレイヤー総数:" + Person.NumberOfPerson.ToString());
+			// message.Channel.SendMessageAsync("プレイヤー情報：ID=" + Person1.ID.ToString()
+			//  + ", 名前=" + Person1.Name + ", 役割=" + Person1.GetJob().ToString());
+			await message.Channel.SendMessageAsync(null, false, embed.Build());
 			return Person1;
 		}
 
@@ -202,8 +214,13 @@ namespace TestBotIS
 
 			TurnIncrement();
 			Player = Program._PersonList[Program._TurnIndex];
-			await Program._GameChannel.SendMessageAsync("---\n" + Player.Name + Player.Number.ToString() + "の番です");
-			await Player.socketUser.SendMessageAsync(Player.Name + Player.Number.ToString() + "の番です");
+			var embed = new EmbedBuilder();
+			embed.WithTitle(Player.Name + Player.Number.ToString() + "の番です");
+			embed.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
+			embed.WithColor(Color.Green);
+
+			await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
+			await Player.socketUser.SendMessageAsync(null, false, embed.Build());
 			await CardListHandler.DealCardToPerson(Program._Deck, Player, 1);
 			Player.SortHand();
 			await DisplayInfo();
@@ -239,7 +256,7 @@ namespace TestBotIS
 				embed.AddField(Program._PersonList[i].Name, str, false);
 			}
 			str = Program._Deck.Count.ToString() + "\n";
-			embed.AddField("山札の枚数：" ,str, false);
+			embed.AddField("山札の枚数：", str, false);
 			await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
 		}
 
@@ -254,7 +271,16 @@ namespace TestBotIS
 			{
 				return;
 			}
+			//本人への通知
+			var embedPlayer = new EmbedBuilder();
+			embedPlayer.WithTitle("味見審議");
+			embedPlayer.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
+			embedPlayer.WithColor(Color.Red);
+			string str = "あなたは" + Program._DeclaredName + "を捨てると言って" + String.Join(", ", Program._Field.GetStrCardName()) + "を出した\n";
+			embedPlayer.WithDescription(str);
+			await Player.socketUser.SendMessageAsync(null, false, embedPlayer.Build());
 
+			//ゲームチャンネルへの投稿
 			IEmote[] emotes = new IEmote[2];
 			var embed = new EmbedBuilder();
 			embed.WithTitle("味見するかい？");

@@ -27,12 +27,12 @@ namespace TestBotIS
 		public static int _TurnIndex;
 		public static string _tokenstr;
 		public static string _DeclaredName; //味見するときに宣言する名前
-		public static string _githubstr;
+		public static string _GithubContentStr;
 
 		static void Main(string[] args)
 		{
 			_tokenstr = "";
-			_githubstr = "https://github.com/speclimb/StirFryEighteen";
+			_GithubContentStr = "https://raw.githubusercontent.com/speclimb/StirFryEighteen/";
 			using (System.IO.StreamReader reader = new System.IO.StreamReader("./DiscordToken.txt", System.Text.Encoding.GetEncoding("UTF-8")))
 			{
 				_tokenstr = reader.ReadLine().Trim();
