@@ -44,10 +44,11 @@ namespace TestBotIS
 					double Number = double.Parse(list2[3]);
 					List<double> FlagNumberList = list2.GetRange(4, 3).ConvertAll(x => double.Parse(x));
 					List<string> FlagStrList = list2.GetRange(7, 3);
-					string Note = list2[10];
+					string ImgName = list2[10];
+					string Note = list2[11];
 
 					var Card1 = new Card(CardID, Name, Kind, Number, DrawNumber, FlagKind
-										, FlagNumberList, FlagStrList, Note);
+										, FlagNumberList, FlagStrList, ImgName, Note);
 					CardList.Add(Card1);
 					CardID++;
 				}

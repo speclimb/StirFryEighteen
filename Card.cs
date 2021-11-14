@@ -14,8 +14,9 @@ namespace TestBotIS
 		public readonly List<string> FlagStrList;
 		public readonly List<double> FlagNumberList;
 		public readonly string Note;
+		public readonly string ImgURL;
 		public Card(int ID, string Name, string Kind, double Number, int DrawNumber, string FlagKind
-					, List<double> FlagNumberList, List<string> FlagStrList, string Note)
+					, List<double> FlagNumberList, List<string> FlagStrList, string ImgName,string Note)
 		{
 			this.ID = ID;
 			this.Name = Name;
@@ -26,6 +27,7 @@ namespace TestBotIS
 			this.FlagNumberList = FlagNumberList;
 			this.FlagStrList = FlagStrList;
 			this.Note = Note;
+			this.ImgURL = Program._githubstr + "/" + ImgName;
 		}
 		public void DisplayCardData()
 		{
@@ -50,7 +52,7 @@ namespace TestBotIS
 		public Card Clone()
 		{
 			return new Card(this.ID, this.Name, this.Kind, this.Number, this.DrawNumber, this.FlagKind
-							, this.FlagNumberList, this.FlagStrList, this.Note);
+							, this.FlagNumberList, this.FlagStrList, this.ImgURL, this.Note);
 		}
 	}
 }
