@@ -23,24 +23,72 @@ namespace TestBotIS
 				return;
 			}
 			if (Program._IsTasting == false) return;
+			// if (ReactionPerson == ResponseFromMsg.Player) return;
 			// Console.WriteLine("aa");
 
-			// if(reac.Emote == "🍴"){
+			//手札0枚かつ勝利点5点未満のやつに味見する権利はない
+			if (ReactionPerson.GetHand().Count == 0 && ReactionPerson.GetScore() < 5)
+			{	
+				var embed = new EmbedBuilder();
+				embed.WithTitle("貴様に味見する権利はない");
+				embed.WithAuthor(ReactionPerson.socketUser.Username, ReactionPerson.socketUser.GetAvatarUrl() ?? ReactionPerson.socketUser.GetDefaultAvatarUrl());
+				embed.WithColor(Color.Red);
+				embed.WithDescription("手札0枚かつ勝利点5点未満の奴に味見する権利などない");
+				await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
+				return;
+			}
 
-			// }
+			bool IsFault = false;
+			if (reac.Emote.ToString() == "🍴")
+			{
+				//野菜を宣言して2枚出した場合
+				if (Program._DeclaredName == "野菜")
+				{
+					if (Program._Field.Count != 2)
+						return;
+					if (Program._Field[0].Name == Program._Field[1].Name)
+					{
+						// 出したカードと宣言が一致
+						Console.WriteLine("一致1");
+						IsFault = true;
+					}
+					else if ((Program._Field[0].Name == "豆腐" && Program._Field[1].Kind != "タンパク質")
+						  || (Program._Field[1].Name == "豆腐" && Program._Field[0].Kind != "タンパク質"))
+					{
+						// 出したカードと宣言が一致
+						Console.WriteLine("一致2");
+						IsFault = true;
+					}
 
-			var embed = new EmbedBuilder();
-			embed.WithTitle("リアクションした");
-			embed.WithAuthor(ReactionPerson.socketUser.Username, ReactionPerson.socketUser.GetAvatarUrl() ?? ReactionPerson.socketUser.GetDefaultAvatarUrl());
-			embed.WithColor(Color.Green);
-			// 念のためnullで初期化
-			string description = null;
-			description += Program._DeclaredName + "を捨てると言ってカードを" + Program._Field.Count + "枚出した\n";
-			// 表示する選択肢一覧をdescriptionに設定
-			description += (new Emoji("🍴")).ToString() + "：嘘に違いない。味見する" + "\n";
-			description += (new Emoji("👍")).ToString() + "：" + ReactionPerson.Name + "を信用する" + "\n";
-			embed.WithDescription(description);
-			await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
+				}
+				//タンパク質の名前を宣言して1枚出した場合
+				else
+				{
+					if (Program._Field.Count != 1)
+						return;
+
+					if (Program._Field[0].Name == Program._DeclaredName)
+					{
+						// 出したカードと宣言が一致
+						Console.WriteLine("一致2");
+						IsFault = true;
+					}
+				}
+			}
+			if (IsFault)
+			{
+				await CardListHandler.TastingFault(ResponseFromMsg.Player, ReactionPerson);
+			}
+			else
+			{
+				Console.WriteLine("一致なし");
+				await CardListHandler.TastingSuccsess(ResponseFromMsg.Player, ReactionPerson);
+			}
+			//一致しない
+
+
+			Program._Trash.AddRange(Program._Field.DeepCopy());
+			Program._Field.Clear();
 			Program._IsTasting = false;
 
 		}

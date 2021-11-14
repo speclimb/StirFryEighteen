@@ -175,12 +175,18 @@ namespace TestBotIS
 					{
 						DeclaredName = Regex.Replace(cmd, @"[!]", "");
 						bool IsProtein = false;
+						if (Player.IsOneCardDicarded == true)
+						{
+							str = "1枚捨てるのは既にやったためこのターンはできません";
+							return (false, str);
+						}
 						//タンパク質のみを捨て札にできるので，宣言名がタンパク質か判定
 						foreach (Card card in Program._CardList)
 						{
 							if (card.Name == DeclaredName && card.Kind == "タンパク質")
 							{
 								IsProtein = true;
+								Player.IsOneCardDicarded = true;
 								break;
 							}
 						}
@@ -194,6 +200,12 @@ namespace TestBotIS
 			}
 			else if (SelectCardList.Count == 2)
 			{
+				if (Player.IsTwoCardDicarded == true)
+				{
+					str = "2枚捨てるのは既にやったためこのターンはできません";
+					return (false, str);
+				}
+				Player.IsTwoCardDicarded = true;
 				DeclaredName = "野菜";
 			}
 			else
@@ -206,6 +218,60 @@ namespace TestBotIS
 			Player.SetHand(NonSelectedCardList.DeepCopy());
 
 			return (true, DeclaredName);
+		}
+
+		/// <summary>
+		/// 味見に成功し，ブラフに失敗したPlayerはこれ以上味見審議する権利を失い，成功したPersonは次の手番に追加で1枚の手札を得る。
+		/// </summary>
+		/// <returns></returns>
+		public static async Task TastingSuccsess(Person Player, Person person)
+		{
+			var embed = new EmbedBuilder();
+			embed.WithTitle("味見成功");
+			embed.WithAuthor(person.socketUser.Username, person.socketUser.GetAvatarUrl() ?? person.socketUser.GetDefaultAvatarUrl());
+			embed.WithColor(Color.Green);
+			string str = Player.Name + "が場に出したカードは" + String.Join(", ", Program._Field.GetStrCardName()) + "だった。\n";
+			str += Player.Name + "はこのターン中はカードを新たに得ることはできません。\n";
+			str += person.Name + "は次の手番に1枚多くドローできます。";
+			embed.WithDescription(str);
+			await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
+
+			Player.IsTwoCardDicarded = true;
+			Player.IsOneCardDicarded = true;
+			person.NumberOfTasteSuccess++;
+			return;
+		}
+
+		/// <summary>
+		/// 味見に成功し，ブラフに成功したPlayerはカードを引き，失敗したPersonは手札を失う(手札0の場合勝利点5を失う)。
+		/// </summary>
+		/// <returns></returns>
+		public static async Task TastingFault(Person Player, Person person)
+		{
+			int DrawN = 3;
+			if(Program._Field.Count != 2){
+				DrawN = Program._Field[0].DrawNumber;
+			}
+
+			var embed = new EmbedBuilder();
+			embed.WithTitle("味見失敗");
+			embed.WithAuthor(person.socketUser.Username, person.socketUser.GetAvatarUrl() ?? person.socketUser.GetDefaultAvatarUrl());
+			embed.WithColor(Color.Green);
+			string str = Player.Name + "が場に出したカードは" + String.Join(", ", Program._Field.GetStrCardName()) + "だった。\n";
+			str += Player.Name + "は新たに" + Program._Field[0].DrawNumber + "枚のカードを引きます。\n";
+			if(person.GetHand().Count == 0){
+				person.AddScore(-5);
+				str += person.Name + "は手札がないので勝利点を5点失います。";
+			}else{
+				Program._Trash.AddRange(person.GetHand().DeepCopy());
+				person.SetHand(new List<Card>(0));
+				str += person.Name + "は手札をすべて失った。";
+			}
+			
+			embed.WithDescription(str);
+			await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
+			await CardListHandler.DealCardToPerson(Program._Deck, Player, DrawN);
+			return;
 		}
 	}
 }

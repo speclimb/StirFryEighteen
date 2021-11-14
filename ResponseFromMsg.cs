@@ -211,6 +211,9 @@ namespace TestBotIS
 				Program._IsDiscardDownPhase = true;
 				return;
 			}
+			//味見審議状態のリセット
+			Player.IsOneCardDicarded = false;
+			Player.IsTwoCardDicarded = false;
 
 			TurnIncrement();
 			Player = Program._PersonList[Program._TurnIndex];
@@ -221,7 +224,8 @@ namespace TestBotIS
 
 			await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
 			await Player.socketUser.SendMessageAsync(null, false, embed.Build());
-			await CardListHandler.DealCardToPerson(Program._Deck, Player, 1);
+			await CardListHandler.DealCardToPerson(Program._Deck, Player, 1 + Player.NumberOfTasteSuccess);
+			Player.NumberOfTasteSuccess = 0;
 			Player.SortHand();
 			await DisplayInfo();
 			await CardListHandler.SendMsgToUserHand(Player);
