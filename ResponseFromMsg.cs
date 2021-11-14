@@ -75,9 +75,7 @@ namespace TestBotIS
 						await DisplayInfo();
 						await CardListHandler.SendMsgToUserHand(Player);
 						break;
-					case "!e":
-						await SendAjimiQuestion();
-						break;
+
 					case "!start":
 
 						break;
@@ -102,19 +100,19 @@ namespace TestBotIS
 						break;
 					// 点数チェック
 					case "!check":
-						(hantei, score, str) = CalcScore(CommandList);
-						FieldToPerson();    //_Fieldに出ているカードをプレイヤーに返す
+						(hantei, score, str) = CardListHandler.CalcScore(Player, CommandList);
+						CardListHandler.FieldToPerson(Player);    //_Fieldに出ているカードをプレイヤーに返す
 						await Player.socketUser.SendMessageAsync(str);
 						break;
 					// カードを場に出して採点する
 					case "!cook":
-						(hantei, score, str) = CalcScore(CommandList);
+						(hantei, score, str) = CardListHandler.CalcScore(Player, CommandList);
 						await Player.socketUser.SendMessageAsync(str);
 
 						// 点数判定が成立しない場合は手札にカードを戻す
 						if (hantei != true)
 						{
-							FieldToPerson();    //_Fieldに出ているカードをプレイヤーに返す
+							CardListHandler.FieldToPerson(Player);    //_Fieldに出ているカードをプレイヤーに返す
 							break;
 						}
 						await Program._GameChannel.SendMessageAsync(Player.Name + "は調理を行った。\n" + str);
@@ -132,7 +130,15 @@ namespace TestBotIS
 						break;
 					// カードを場に出して味見審議する
 					case "!discard":
-						DiscardToField(CommandList);
+						int x = 0;
+						(x, Program._DeclaredName) = CardListHandler.DiscardToField(Player, CommandList);
+						if (x == -1)
+						{
+							CardListHandler.FieldToPerson(Player);
+							break;
+						}
+						await SendTastingQuestion();
+						Program._IsTasting = true;
 						break;
 				}
 			}
@@ -169,71 +175,6 @@ namespace TestBotIS
 			 + ", 名前=" + Person1.Name + ", 役割=" + Person1.GetJob().ToString());
 			return Person1;
 		}
-
-		/// <summary>
-		/// カードのを場(_Field)に出して得点計算する
-		/// </summary>
-		/// <returns>名前や説明などが格納されたstring List</returns>
-		public static (bool, int, string) CalcScore(List<string> CommandList)
-		{
-			int score = 0;
-			string str = "";
-			if (CommandList.Count == 0)
-				str = "点数計算するカード名を指定して下さい";
-
-			var CardNameList = CommandList.GetRange(1, CommandList.Count - 1);
-			str = "選択カード：" + String.Join(", ", CardNameList) + "\n";
-			var (SelectCardList, NonSelectedCardList) = Player.GetHand().FindCardList(CardNameList);
-
-			Program._Field = SelectCardList.DeepCopy();
-			Player.SetHand(NonSelectedCardList.DeepCopy());
-
-			string strscore = "";
-			bool hantei;
-			(hantei, score, strscore) = Program._Field.CalcScore();
-			str += String.Format($"合計点数：{score}\n{strscore}");
-			return (hantei, score, str);
-		}
-
-		/// <summary>
-		/// カードのを場に出して味見待機状態にする
-		/// </summary>
-		/// <returns>名前や説明などが格納されたstring List</returns>
-		public static (int, string) DiscardToField(List<string> CommandList)
-		{
-			string str = "";
-			string DeclaredName = "";
-			CommandList.RemoveAt(0);
-			if (CommandList.Count == 0)
-				str = "捨てるカード名を指定して下さい";
-
-			var CardNameList = CommandList.GetRange(1, CommandList.Count - 1);
-			str = "選択カード：" + String.Join(", ", CardNameList) + "\n";
-			var (SelectCardList, NonSelectedCardList) = Player.GetHand().FindCardList(CardNameList);
-
-			if (SelectCardList.Count == 1)
-			{
-				foreach (string cmd in CommandList)
-				{
-					if (cmd.StartsWith('!'))
-					{
-						DeclaredName = Regex.Replace(cmd, @"[!]", "");
-					}
-				}
-
-			}
-			else if (SelectCardList.Count == 2)
-			{
-
-			}
-			else
-			{
-				str = "選択するカードは1枚か2枚です";
-			}
-
-			return (0, "ss");
-		}
-
 
 		/// <summary>
 		/// 次のプレイヤーのターンに移行する
@@ -286,44 +227,46 @@ namespace TestBotIS
 		/// <returns></returns>
 		public static async Task DisplayInfo()
 		{
+			var embed = new EmbedBuilder();
+			embed.WithColor(Color.Red);
+			embed.WithTitle("ゲーム状況");
 			string str = "";
-			str = "プレイヤー情報：\n";
+
 			for (int i = 0; i < Person.NumberOfPerson; i++)
 			{
-				str += Program._PersonList[i].Name
-					+ "，点数=" + Program._PersonList[i].GetScore().ToString()
+				str = "点数=" + Program._PersonList[i].GetScore().ToString()
 					+ "，手札枚数=" + Program._PersonList[i].GetHand().Count + "\n";
+				embed.AddField(Program._PersonList[i].Name, str, false);
 			}
-			str += "山札の枚数：" + Program._Deck.Count.ToString() + "\n";
-			await Program._GameChannel.SendMessageAsync(str);
+			str = Program._Deck.Count.ToString() + "\n";
+			embed.AddField("山札の枚数：" ,str, false);
+			await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
 		}
+
 
 		/// <summary>
-		/// Program._Fieldに出ているカードを現在の手番プレイヤーに返す
+		/// Program._GameChannelに味見するかしないかを投稿する
 		/// </summary>
 		/// <returns></returns>
-		public static void FieldToPerson()
+		public static async Task SendTastingQuestion()
 		{
-			List<Card> list1 = Player.GetHand().DeepCopy();
-			var templist1 = Program._Field.DeepCopy();
-			list1.AddRange(templist1);
-			Player.SetHand(list1);
-			Player.SortHand();
-			Program._Field.Clear();
-		}
+			if (Program._Field.Count == 0)
+			{
+				return;
+			}
 
-		public static async Task SendAjimiQuestion()
-		{
 			IEmote[] emotes = new IEmote[2];
 			var embed = new EmbedBuilder();
-			embed.WithTitle("選択肢");
+			embed.WithTitle("味見するかい？");
+			embed.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
 			embed.WithColor(Color.Green);
 			// 念のためnullで初期化
 			string description = null;
+			description += Program._DeclaredName + "を捨てると言ってカードを" + Program._Field.Count + "枚出した\n";
 			// 表示する選択肢一覧をdescriptionに設定
-			description += (new Emoji("🍴")).ToString() + "：味見する" + "\n";
+			description += (new Emoji("🍴")).ToString() + "：嘘に違いない。味見する" + "\n";
 			emotes[0] = new Emoji("🍴");
-			description += (new Emoji("👍")).ToString() + "：信用する" + "\n";
+			description += (new Emoji("👍")).ToString() + "：" + Player.Name + "を信用する" + "\n";
 			emotes[1] = new Emoji("👍");
 
 			embed.WithDescription(description);

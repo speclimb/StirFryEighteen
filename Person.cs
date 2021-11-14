@@ -16,6 +16,7 @@ namespace TestBotIS
 		public readonly SocketUser socketUser;
 		private int score;
 		public bool IsCooked;
+		public int TastingNumber;
 		public int NumberOfTasteSuccess;
 		
 		public Person(SocketUser user, int job)

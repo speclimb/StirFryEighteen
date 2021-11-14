@@ -75,16 +75,98 @@ namespace TestBotIS
 		public static async Task<int> SendMsgToUserHand(Person person)
 		{
 			// 山札から引いたカード情報をList<string>で受け取り，\n区切りで一つの配列にする
-			StringBuilder strPlayer = new StringBuilder("プレイヤーNo.");
-			strPlayer.Append(person.Number.ToString());
-			strPlayer.Append("\n手札カード：\n");
+			StringBuilder strPlayer = new StringBuilder("");
 			string str = String.Join("\n", person.GetHand().GetStrCardList().ToArray());
 			strPlayer.Append(str);
-			strPlayer.Append("\n");
-			await person.socketUser.SendMessageAsync(strPlayer.ToString());
+
+			var embed = new EmbedBuilder();
+			embed.WithTitle("プレイヤーNo." + person.Number.ToString() + "の手札カード");
+			embed.WithAuthor(person.socketUser.Username, person.socketUser.GetAvatarUrl() ?? person.socketUser.GetDefaultAvatarUrl());
+			embed.WithColor(Color.Blue);
+			embed.WithDescription(strPlayer.ToString());
+			await person.socketUser.SendMessageAsync(null, false, embed.Build());
 			return 0;
 		}
-		
 
+		/// <summary>
+		/// Program._Fieldに出ているカードを現在の手番プレイヤーに返す
+		/// </summary>
+		/// <returns></returns>
+		public static void FieldToPerson(Person Player)
+		{
+			List<Card> list1 = Player.GetHand().DeepCopy();
+			var templist1 = Program._Field.DeepCopy();
+			list1.AddRange(templist1);
+			Player.SetHand(list1);
+			Player.SortHand();
+			Program._Field.Clear();
+		}
+
+		/// <summary>
+		/// カードを場(_Field)に出して得点計算する
+		/// </summary>
+		/// <returns>名前や説明などが格納されたstring List</returns>
+		public static (bool, int, string) CalcScore(Person Player, List<string> CommandList)
+		{
+			int score = 0;
+			string str = "";
+			if (CommandList.Count == 0)
+				str = "点数計算するカード名を指定して下さい";
+
+			var CardNameList = CommandList.GetRange(1, CommandList.Count - 1);
+			str = "選択カード：" + String.Join(", ", CardNameList) + "\n";
+			var (SelectCardList, NonSelectedCardList) = Player.GetHand().FindCardList(CardNameList);
+
+			Program._Field = SelectCardList.DeepCopy();
+			Player.SetHand(NonSelectedCardList.DeepCopy());
+
+			string strscore = "";
+			bool hantei;
+			(hantei, score, strscore) = Program._Field.CalcScore();
+			str += String.Format($"合計点数：{score}\n{strscore}");
+			return (hantei, score, str);
+		}
+
+		/// <summary>
+		/// カードを場(_Field)に出して味見待機状態にする
+		/// </summary>
+		/// <returns>名前や説明などが格納されたstring List</returns>
+		public static (int, string) DiscardToField(Person Player, List<string> CommandList)
+		{
+			string str = "";
+			string DeclaredName = "";
+			CommandList.RemoveAt(0);
+			if (CommandList.Count == 0)
+				str = "捨てるカード名を指定して下さい";
+
+			var CardNameList = CommandList.GetRange(0, CommandList.Count);
+			str = "選択カード：" + String.Join(", ", CardNameList) + "\n";
+			var (SelectCardList, NonSelectedCardList) = Player.GetHand().FindCardList(CardNameList);
+
+			if (SelectCardList.Count == 1)
+			{
+				foreach (string cmd in CommandList)
+				{
+					if (cmd.StartsWith('!'))
+					{
+						DeclaredName = Regex.Replace(cmd, @"[!]", "");
+					}
+				}
+			}
+			else if (SelectCardList.Count == 2)
+			{
+				DeclaredName = "野菜";
+			}
+			else
+			{
+				str = "選択するカードは1枚か2枚です";
+				return (-1, "");
+			}
+
+			Program._Field = SelectCardList.DeepCopy();
+			Player.SetHand(NonSelectedCardList.DeepCopy());
+
+			return (0, DeclaredName);
+		}
 	}
 }

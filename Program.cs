@@ -21,10 +21,12 @@ namespace TestBotIS
 		public static List<Card> _Trash;
 		public static List<Card> _Field;
 		public static ISocketMessageChannel _GameChannel;
-		public static bool _IsGame;
-		public static bool _IsDiscardDownPhase;
+		public static bool _IsGame;     //ゲーム中フラグ
+		public static bool _IsDiscardDownPhase; //ターン終了時の手札カード調整フェイズフラグ
+		public static bool _IsTasting;  //味見判断待ちフラグ
 		public static int _TurnIndex;
 		public static string _tokenstr;
+		public static string _DeclaredName; //味見するときに宣言する名前
 
 		static void Main(string[] args)
 		{
@@ -88,24 +90,13 @@ namespace TestBotIS
 
 			//ここから記述--------------------------------------------------------------------------
 			await ResponseFromMsg.JudgeMsg(message);
-			
+
 		}
 
 		private async Task ReactionRecieved(Cacheable<IUserMessage, ulong> a
-											,ISocketMessageChannel ch, SocketReaction reac)
+											, ISocketMessageChannel ch, SocketReaction reac)
 		{
-			Console.WriteLine("aa");
-			// Console.WriteLine(reac.Emote.Name);
-			// Console.WriteLine(reac.MessageId.ToString());
-
-			// var d = ((SocketUserMessage)reac.Message);
-			// Console.WriteLine(d.Author.Username);
-			// Console.WriteLine(d.Content);
-
-			var d = reac.User;
-			
-			// Console.WriteLine(d.ReplyAsync());
-			// "👍"
+			await ResponseFromReaction.JudgeReaction(reac);
 		}
 		private Task Log(LogMessage message)
 		{
