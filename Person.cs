@@ -18,6 +18,9 @@ namespace TestBotIS
 		public bool IsCooked;
 		public int TastingNumber;
 		public int NumberOfTasteSuccess;
+		public bool IsOneCardDicarded;
+		public bool IsTwoCardDicarded;
+		public bool IsDiscardFailed;
 		
 		public Person(SocketUser user, int job)
 		{
@@ -30,6 +33,9 @@ namespace TestBotIS
 			this.Number = NumberOfPerson;
 			this.score = 0;
 			this.IsCooked = false;
+			this.IsOneCardDicarded = false;
+			this.IsTwoCardDicarded= false;
+			this.IsDiscardFailed = false;
 		}
 		public int GetJob()
 		{

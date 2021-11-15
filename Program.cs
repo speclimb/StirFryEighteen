@@ -28,6 +28,7 @@ namespace TestBotIS
 		public static string _tokenstr;
 		public static string _DeclaredName; //味見するときに宣言する名前
 		public static string _GithubContentStr;
+		public static int _TastingThroughN;
 
 		static void Main(string[] args)
 		{
@@ -45,6 +46,7 @@ namespace TestBotIS
 			_IsGame = false;
 			_IsDiscardDownPhase = false;
 			_TurnIndex = 0;
+			_TastingThroughN = 0;
 			new Program().MainAsync().GetAwaiter().GetResult();
 		}
 
