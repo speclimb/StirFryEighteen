@@ -23,6 +23,7 @@ namespace TestBotIS
 			// コマンド("おはよう")かどうか判定
 			if (Program._IsGame == false)
 			{
+				var embed = new EmbedBuilder();
 				Program._GameChannel = NowMsg.Channel;
 				switch (CommandList[0].ToLower())
 				{
@@ -56,6 +57,11 @@ namespace TestBotIS
 						await NowMsg.Channel.SendMessageAsync("プレイヤー情報クリア");
 						break;
 					case "!s":
+						if(Program._PersonList.Count <= 1){
+							embed.WithTitle("プレイヤーの数が足りません");
+							await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
+							break;
+						}
 						//参加プレイヤー全員にカードを3枚配る
 						Program._GameChannel = NowMsg.Channel;
 						foreach (Person p in Program._PersonList)
@@ -69,7 +75,6 @@ namespace TestBotIS
 						await Program._GameChannel.SendMessageAsync(null, false, new EmbedBuilder().WithTitle("ゲームスタート!").Build());
 						Program._TurnIndex = 0;
 						Player = Program._PersonList[Program._TurnIndex];
-						var embed = new EmbedBuilder();
 						embed.WithTitle(Player.Name + Player.Number.ToString() + "の番です");
 						embed.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
 						embed.WithColor(Color.Green);
@@ -87,10 +92,8 @@ namespace TestBotIS
 			}
 			else if (!Program._IsDiscardDownPhase && NowMsg.Author.Id == Player.socketUser.Id)  //ゲーム中
 			{
-				string str;
-				int score;
-				bool hantei;
 				Player = Program._PersonList[Program._TurnIndex];
+				var embed = new EmbedBuilder();
 				switch (CommandList[0].ToLower())
 				{
 					// 一枚カードを引く
@@ -104,28 +107,11 @@ namespace TestBotIS
 						break;
 					// 点数チェック
 					case "!check":
-						(hantei, score, str) = CardListHandler.CalcScore(Player, CommandList);
-						CardListHandler.FieldToPerson(Player);    //_Fieldに出ているカードをプレイヤーに返す
-						await Player.socketUser.SendMessageAsync(str);
+						await CheckScore(CommandList, false);
 						break;
 					// カードを場に出して採点する
 					case "!cook":
-						(hantei, score, str) = CardListHandler.CalcScore(Player, CommandList);
-						await Player.socketUser.SendMessageAsync(str);
-
-						// 点数判定が成立しない場合は手札にカードを戻す
-						if (hantei != true)
-						{
-							CardListHandler.FieldToPerson(Player);    //_Fieldに出ているカードをプレイヤーに返す
-							break;
-						}
-						await Program._GameChannel.SendMessageAsync(Player.Name + "は調理を行った。\n" + str);
-						// var templist = Program._Field.DeepCopy();
-						Program._Trash.AddRange(Program._Field.DeepCopy());
-						Program._Field.Clear();
-						Player.AddScore(score);
-						Player.IsCooked = true;
-						await StartNextTurn();
+						await Cooking(CommandList);
 						break;
 					// カードを場を出さずにターン終了する
 					case "!nocook":
@@ -135,8 +121,8 @@ namespace TestBotIS
 					// カードを場に出して味見審議する
 					case "!discard":
 						bool IsDiscardSuccess = false;
-						(IsDiscardSuccess , Program._DeclaredName) = CardListHandler.DiscardToField(Player, CommandList);
-						if (IsDiscardSuccess  == false)
+						(IsDiscardSuccess, Program._DeclaredName) = CardListHandler.DiscardToField(Player, CommandList);
+						if (IsDiscardSuccess == false)
 						{
 							CardListHandler.FieldToPerson(Player);
 							await Player.socketUser.SendMessageAsync(null, false, new EmbedBuilder().WithTitle(Program._DeclaredName).Build());
@@ -153,16 +139,7 @@ namespace TestBotIS
 				switch (CommandList[0].ToLower())
 				{
 					case "!trash":
-						var (Discards, RemainigCards) = Player.GetHand().FindCardList(CommandList);
-						if (RemainigCards.Count > 3)
-						{
-							await Player.socketUser.SendMessageAsync("カードを3枚以下になるまで捨ててください");
-							break;
-						}
-						Program._Trash.AddRange(Discards.DeepCopy());
-						Player.SetHand(RemainigCards.DeepCopy());
-						Program._IsDiscardDownPhase = false;
-						await StartNextTurn();
+						await Trash(CommandList);
 						break;
 				}
 			}
@@ -194,20 +171,26 @@ namespace TestBotIS
 		/// <returns></returns>
 		public static async Task StartNextTurn()
 		{
+			var embed = new EmbedBuilder();
 			Program._Deck.AddRange(Program._Trash.DeepCopy());
 			Program._Deck.Shuffle();
 			Program._Trash.Clear();
 			// 料理したらカードを一枚配る
-			if (Player.IsCooked)
+			if (Player.IsCooked && Player.IsDiscardFailed == false)
 			{
 				await CardListHandler.DealCardToPerson(Program._Deck, Player, 1);
 				Player.SortHand();
 				Player.IsCooked = false;
 			}
+			Player.IsDiscardFailed = false;
 			await CardListHandler.SendMsgToUserHand(Player);
 			if (Player.GetHand().Count > 3)
 			{
-				await Program._GameChannel.SendMessageAsync("カードを3枚以下になるまで捨ててください");
+				embed.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
+				embed.WithColor(Color.Red);
+				embed.WithTitle(Player.Name + "はカードを3枚以下になるまで捨ててください");
+				await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
+				await Player.socketUser.SendMessageAsync(null, false, embed.Build());
 				Program._IsDiscardDownPhase = true;
 				return;
 			}
@@ -217,7 +200,6 @@ namespace TestBotIS
 
 			TurnIncrement();
 			Player = Program._PersonList[Program._TurnIndex];
-			var embed = new EmbedBuilder();
 			embed.WithTitle(Player.Name + Player.Number.ToString() + "の番です");
 			embed.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
 			embed.WithColor(Color.Green);
@@ -321,6 +303,91 @@ namespace TestBotIS
 			}
 			embed.WithDescription(description);
 			await Program._GameChannel.SendMessageAsync(null, false, embed.Build()).GetAwaiter().GetResult().AddReactionsAsync(emotes);
+		}
+
+		/// <summary>
+		/// 点数計算する
+		/// </summary>
+		/// <returns>(bool 点数計算の可否, int 点数, str メッセージ)</returns>
+		public static async Task<(bool, int, string)> CheckScore(List<string> CommandList, bool IsCook)
+		{
+			string str;
+			int score;
+			bool hantei;
+			var embed = new EmbedBuilder();
+			embed.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
+			embed.WithColor(Color.Green);
+			(hantei, score, str) = CardListHandler.CalcScore(Player, CommandList);
+			if (IsCook == false)
+			{
+				CardListHandler.FieldToPerson(Player);    //_Fieldに出ているカードをプレイヤーに返す
+				if (hantei == false)
+				{
+					embed.WithTitle("点数計算不可");
+				}
+				else
+				{
+					embed.WithTitle("点数：" + score.ToString() + "点");
+				}
+				embed.WithDescription(str);
+				await Player.socketUser.SendMessageAsync(null, false, embed.Build());
+			}
+			return (hantei, score, str);
+		}
+
+		/// <summary>
+		/// 料理する
+		/// </summary>
+		/// <returns></returns>
+		public static async Task Cooking(List<string> CommandList)
+		{
+			string str;
+			int score;
+			bool hantei;
+			var embed = new EmbedBuilder();
+			embed.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
+			embed.WithColor(Color.Green);
+			(hantei, score, str) = await CheckScore(CommandList, true);
+			embed.WithDescription(str);
+
+			// 点数判定が成立しない場合は手札にカードを戻す
+			if (hantei != true)
+			{
+				embed.WithTitle("点数計算不可");
+				await Player.socketUser.SendMessageAsync(null, false, embed.Build());
+				CardListHandler.FieldToPerson(Player);    //_Fieldに出ているカードをプレイヤーに返す
+				return;
+			}
+			embed.WithTitle(Player.Name + "は調理を行い" + score.ToString() + "点を得た");
+			await Player.socketUser.SendMessageAsync(null, false, embed.Build());
+			await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
+			Program._Trash.AddRange(Program._Field.DeepCopy());
+			Program._Field.Clear();
+			Player.AddScore(score);
+			Player.IsCooked = true;
+			await StartNextTurn();
+		}
+
+		/// <summary>
+		/// 料理する
+		/// </summary>
+		/// <returns></returns>
+		public static async Task Trash(List<string> CommandList)
+		{
+			var embed = new EmbedBuilder();
+			var (Discards, RemainigCards) = Player.GetHand().FindCardList(CommandList);
+			if (RemainigCards.Count > 3)
+			{
+				embed.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
+				embed.WithColor(Color.Red);
+				embed.WithTitle(Player.Name + "はカードを3枚以下になるまで捨ててください");
+				await Player.socketUser.SendMessageAsync(null, false, embed.Build());
+				return;
+			}
+			Program._Trash.AddRange(Discards.DeepCopy());
+			Player.SetHand(RemainigCards.DeepCopy());
+			Program._IsDiscardDownPhase = false;
+			await StartNextTurn();
 		}
 
 		private static string[] iconUni = { "\uD83C\uDDE6",

@@ -238,19 +238,23 @@ namespace TestBotIS
 
 			Player.IsTwoCardDicarded = true;
 			Player.IsOneCardDicarded = true;
+			Player.IsDiscardFailed = true;
 			person.NumberOfTasteSuccess++;
 			return;
 		}
 
 		/// <summary>
-		/// 味見に成功し，ブラフに成功したPlayerはカードを引き，失敗したPersonは手札を失う(手札0の場合勝利点5を失う)。
+		/// 味見に失敗し，宣言通りのカードを出していたPlayerはカードを引き，失敗したPersonは手札を失う(手札0の場合勝利点5を失う)。
 		/// </summary>
 		/// <returns></returns>
 		public static async Task TastingFault(Person Player, Person person)
 		{
 			int DrawN = 3;
 			if(Program._Field.Count != 2){
-				DrawN = Program._Field[0].DrawNumber;
+				// DrawN = Program._Field[0].DrawNumber;
+				List<string> strlist = new List<string>() {Program._DeclaredName};
+				(var list,_) = Program._CardList.FindCardList(strlist);
+				DrawN = list[0].DrawNumber;
 			}
 
 			var embed = new EmbedBuilder();
@@ -258,7 +262,7 @@ namespace TestBotIS
 			embed.WithAuthor(person.socketUser.Username, person.socketUser.GetAvatarUrl() ?? person.socketUser.GetDefaultAvatarUrl());
 			embed.WithColor(Color.Green);
 			string str = Player.Name + "が場に出したカードは" + String.Join(", ", Program._Field.GetStrCardName()) + "だった。\n";
-			str += Player.Name + "は新たに" + Program._Field[0].DrawNumber + "枚のカードを引きます。\n";
+			str += Player.Name + "は新たに" + DrawN + "枚のカードを引きます。\n";
 			if(person.GetHand().Count == 0){
 				person.AddScore(-5);
 				str += person.Name + "は手札がないので勝利点を5点失います。";
@@ -271,7 +275,32 @@ namespace TestBotIS
 			embed.WithDescription(str);
 			await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
 			await CardListHandler.DealCardToPerson(Program._Deck, Player, DrawN);
+			await SendMsgToUserHand(Player);
 			return;
+		}
+
+		/// <summary>
+		/// 味見は行われず，Playerは宣言通りにカードを引く。
+		/// </summary>
+		/// <returns></returns>
+		public static async Task TastingThrough(Person Player){
+			int DrawN = 3;
+			if(Program._Field.Count != 2){
+				// DrawN = Program._Field[0].DrawNumber;
+				List<string> strlist = new List<string>() {Program._DeclaredName};
+				(var list,_) = Program._CardList.FindCardList(strlist);
+				DrawN = list[0].DrawNumber;
+			}
+
+			var embed = new EmbedBuilder();
+			embed.WithTitle("味見は行われなかった");
+			embed.WithAuthor(Player.socketUser.Username, Player.socketUser.GetAvatarUrl() ?? Player.socketUser.GetDefaultAvatarUrl());
+			embed.WithColor(Color.Green);
+			string str = Player.Name + "は新たに" + DrawN + "枚のカードを引きます。\n";
+			embed.WithDescription(str);
+			await Program._GameChannel.SendMessageAsync(null, false, embed.Build());
+			await CardListHandler.DealCardToPerson(Program._Deck, Player, DrawN);
+			await SendMsgToUserHand(Player);
 		}
 	}
 }
