@@ -13,13 +13,19 @@ namespace TestBotIS
 		private static Person ReactionPerson;
 		public static async Task JudgeReaction(SocketReaction reac)
 		{
+			bool IsNomach = true;
 			foreach (Person person in Program._PersonList)
 			{
 				if (person.ID == reac.UserId)
 				{
 					ReactionPerson = person;
+					IsNomach = false;
 					break;
 				}
+
+			}
+			if (IsNomach)
+			{
 				return;
 			}
 
@@ -27,11 +33,16 @@ namespace TestBotIS
 				&& reac.Emote.ToString() == "🍴")
 			{
 				await Tasting();
-			} else if (Program._IsTasting == true
-					&& reac.Emote.ToString() == "👍"){
+				Program._TastingThroughN = 0;
+			}
+			else if (Program._IsTasting == true
+				  && reac.Emote.ToString() == "👍")
+			{
 				Program._TastingThroughN++;
-				if(Program._TastingThroughN >= Program._PersonList.Count - 1){
+				if (Program._TastingThroughN >= Program._PersonList.Count - 1)
+				{
 					await noTasting();
+					Program._TastingThroughN = 0;
 				}
 			}
 			return;
@@ -98,7 +109,7 @@ namespace TestBotIS
 				Console.WriteLine("一致なし");
 				await CardListHandler.TastingSuccsess(ResponseFromMsg.Player, ReactionPerson);
 			}
-			
+
 			Program._Trash.AddRange(Program._Field.DeepCopy());
 			Program._Field.Clear();
 			Program._IsTasting = false;
@@ -107,7 +118,8 @@ namespace TestBotIS
 		/// 味見処理を行う
 		/// </summary>
 		/// <returns></returns>
-		public static async Task noTasting(){
+		public static async Task noTasting()
+		{
 			await CardListHandler.TastingThrough(ResponseFromMsg.Player);
 			Program._Trash.AddRange(Program._Field.DeepCopy());
 			Program._Field.Clear();
